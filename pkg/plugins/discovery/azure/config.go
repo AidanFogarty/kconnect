@@ -20,9 +20,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2020-09-01/containerservice"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+
+	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2020-09-01/containerservice"
 
 	azclient "github.com/fidelity/kconnect/pkg/azure/client"
 	"github.com/fidelity/kconnect/pkg/azure/id"
@@ -36,6 +37,11 @@ func (p *aksClusterProvider) GetClusterConfig(ctx *provider.Context, cluster *pr
 	if err != nil {
 		return nil, "", fmt.Errorf("getting kubeconfig: %w", err)
 	}
+	if !p.config.Admin {
+		if err := p.addKubelogin(cfg); err != nil {
+			return nil, "", fmt.Errorf("adding kubelogin: %w", err)
+		}
+	}
 
 	if namespace != "" {
 		p.logger.Debugw("setting kubernetes namespace", "namespace", namespace)
@@ -43,6 +49,38 @@ func (p *aksClusterProvider) GetClusterConfig(ctx *provider.Context, cluster *pr
 	}
 
 	return cfg, cfg.CurrentContext, nil
+}
+
+func (p *aksClusterProvider) addKubelogin(cfg *api.Config) error {
+	contextName := cfg.CurrentContext
+	context := cfg.Contexts[contextName]
+	userName := context.AuthInfo
+
+	execConfig := &api.ExecConfig{
+		APIVersion: "client.authentication.k8s.io/v1beta1",
+		Command:    "kubelogin",
+		Args: []string{
+			"get-token",
+			"--environment",
+			"AzurePublicCloud",
+			"--server-id",
+			"6dae42f8-4368-4678-94ff-3960e28e3630",
+			"--client-id",
+			p.config.ClientID,
+			"--tenant-id",
+			p.config.TenantID,
+			"--login",
+			p.config.LoginType,
+		},
+	}
+
+	cfg.AuthInfos = map[string]*api.AuthInfo{
+		userName: {
+			Exec: execConfig,
+		},
+	}
+
+	return nil
 }
 
 func (p *aksClusterProvider) getKubeconfig(ctx context.Context, cluster *provider.Cluster) (*api.Config, error) {

@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/go-playground/validator/v10"
 
 	azid "github.com/fidelity/kconnect/pkg/azure/identity"
 	"github.com/fidelity/kconnect/pkg/config"
@@ -50,6 +51,9 @@ type aksClusterProviderConfig struct {
 	ResourceGroup    *string `json:"resource-group"`
 	Admin            bool    `json:"admin"`
 	ClusterName      string  `json:"cluster-name"`
+	TenantID         string  `json:"tenant-id"`
+	ClientID         string  `json:"client-id"`
+	LoginType        string  `json:"login-type"`
 }
 
 type aksClusterProvider struct {
@@ -71,11 +75,12 @@ func (p *aksClusterProvider) SupportedIDs() []string {
 func (p *aksClusterProvider) ConfigurationItems() config.ConfigurationSet {
 	cs := config.NewConfigurationSet()
 
-	cs.String(SubscriptionIDConfigItem, "", "The Azure subscription to use (specified by ID)")     //nolint: errcheck
-	cs.String(SubscriptionNameConfigItem, "", "The Azure subscription to use (specified by name)") //nolint: errcheck
-	cs.String(ResourceGroupConfigItem, "", "The Azure resource group to use")                      //nolint: errcheck
-	cs.Bool(AdminConfigItem, false, "Generate admin user kubeconfig")                              //nolint: errcheck
-	cs.String(ClusterNameConfigItem, "", "The name of the AKS cluster")                            //nolint: errcheck
+	cs.String(SubscriptionIDConfigItem, "", "The Azure subscription to use (specified by ID)")                                                                          //nolint: errcheck
+	cs.String(SubscriptionNameConfigItem, "", "The Azure subscription to use (specified by name)")                                                                      //nolint: errcheck
+	cs.String(ResourceGroupConfigItem, "", "The Azure resource group to use")                                                                                           //nolint: errcheck
+	cs.Bool(AdminConfigItem, false, "Generate admin user kubeconfig")                                                                                                   //nolint: errcheck
+	cs.String(ClusterNameConfigItem, "", "The name of the AKS cluster")                                                                                                 //nolint: errcheck
+	cs.String(LoginTypeConfigItem, "devicecode", "The login method to use when connecting to the AKS cluster as a non-admin. Possible values: devicecode,spn,ropc,msi") //nolint: errcheck
 
 	cs.SetShort(ResourceGroupConfigItem, "r") //nolint: errcheck
 
@@ -93,6 +98,11 @@ func (p *aksClusterProvider) setup(cs config.ConfigurationSet, identity provider
 	if err := config.Unmarshall(cs, cfg); err != nil {
 		return fmt.Errorf("unmarshalling config items into eksClusteProviderConfig: %w", err)
 	}
+	validate := validator.New()
+	if err := validate.Struct(cfg); err != nil {
+		return fmt.Errorf("validating config struct: %w", err)
+	}
+
 	p.config = cfg
 
 	// TODO: should we just return a AuthorizerIdentity from the aad provider?
