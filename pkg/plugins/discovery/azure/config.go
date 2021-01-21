@@ -19,6 +19,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -28,6 +29,10 @@ import (
 	azclient "github.com/fidelity/kconnect/pkg/azure/client"
 	"github.com/fidelity/kconnect/pkg/azure/id"
 	"github.com/fidelity/kconnect/pkg/provider"
+)
+
+const (
+	AKSAADServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
 )
 
 func (p *aksClusterProvider) GetClusterConfig(ctx *provider.Context, cluster *provider.Cluster, namespace string) (*api.Config, string, error) {
@@ -41,6 +46,7 @@ func (p *aksClusterProvider) GetClusterConfig(ctx *provider.Context, cluster *pr
 		if err := p.addKubelogin(cfg); err != nil {
 			return nil, "", fmt.Errorf("adding kubelogin: %w", err)
 		}
+		p.printLoginDetails()
 	}
 
 	if namespace != "" {
@@ -49,6 +55,19 @@ func (p *aksClusterProvider) GetClusterConfig(ctx *provider.Context, cluster *pr
 	}
 
 	return cfg, cfg.CurrentContext, nil
+}
+
+func (p *aksClusterProvider) printLoginDetails() {
+	switch p.config.LoginType {
+	case LoginTypeResourceOwnerPassword:
+		fmt.Fprintf(os.Stderr, "\033[33mSet the AAD_USER_PRINCIPAL_NAME and AAD_USER_PRINCIPAL_PASSWORD environment variables before running kubectl\033[0m\n")
+	case LoginTypeServicePrincipal:
+		fmt.Fprintf(os.Stderr, "\033[33mSet the AAD_SERVICE_PRINCIPAL_CLIENT_ID and AAD_SERVICE_PRINCIPAL_CLIENT_SECRET environment variables before running kubectl\033[0m\n")
+	}
+
+	if p.config.AzureEnvironment == AzureEnvironmentStackCloud {
+		fmt.Fprintf(os.Stderr, "\033[33mSet the Azure Stack URLs in a config file and set the AZURE_ENVIRONMENT_FILEPATH environment variable to the path of that file\033[0m\n")
+	}
 }
 
 func (p *aksClusterProvider) addKubelogin(cfg *api.Config) error {
@@ -62,15 +81,15 @@ func (p *aksClusterProvider) addKubelogin(cfg *api.Config) error {
 		Args: []string{
 			"get-token",
 			"--environment",
-			"AzurePublicCloud",
+			mapAzureEnvironment(p.config.AzureEnvironment),
 			"--server-id",
-			"6dae42f8-4368-4678-94ff-3960e28e3630",
+			AKSAADServerAppID,
 			"--client-id",
 			p.config.ClientID,
 			"--tenant-id",
 			p.config.TenantID,
 			"--login",
-			p.config.LoginType,
+			string(p.config.LoginType),
 		},
 	}
 
@@ -112,4 +131,19 @@ func (p *aksClusterProvider) getKubeconfig(ctx context.Context, cluster *provide
 	}
 
 	return kubeCfg, err
+}
+
+func mapAzureEnvironment(env AzureEnvironment) string {
+	switch env {
+	case AzureEnvironmentPublicCloud:
+		return "AzurePublicCloud"
+	case AzureEnvironmentChinaCloud:
+		return "AzureChinaCloud"
+	case AzureEnvironmentUSGovCloud:
+		return "AzureUSGovernmentCloud"
+	case AzureEnvironmentStackCloud:
+		return "AzureStackCloud"
+	default:
+		return ""
+	}
 }

@@ -46,14 +46,15 @@ func newAKSProvider() *aksClusterProvider {
 
 type aksClusterProviderConfig struct {
 	provider.ClusterProviderConfig
-	SubscriptionID   *string `json:"subscription-id"`
-	SubscriptionName *string `json:"subscription-name"`
-	ResourceGroup    *string `json:"resource-group"`
-	Admin            bool    `json:"admin"`
-	ClusterName      string  `json:"cluster-name"`
-	TenantID         string  `json:"tenant-id"`
-	ClientID         string  `json:"client-id"`
-	LoginType        string  `json:"login-type"`
+	SubscriptionID   *string          `json:"subscription-id"`
+	SubscriptionName *string          `json:"subscription-name"`
+	ResourceGroup    *string          `json:"resource-group"`
+	Admin            bool             `json:"admin"`
+	ClusterName      string           `json:"cluster-name"`
+	TenantID         string           `json:"tenant-id"`
+	ClientID         string           `json:"client-id"`
+	LoginType        LoginType        `json:"login-type"`
+	AzureEnvironment AzureEnvironment `json:"azure-env"`
 }
 
 type aksClusterProvider struct {
@@ -75,12 +76,13 @@ func (p *aksClusterProvider) SupportedIDs() []string {
 func (p *aksClusterProvider) ConfigurationItems() config.ConfigurationSet {
 	cs := config.NewConfigurationSet()
 
-	cs.String(SubscriptionIDConfigItem, "", "The Azure subscription to use (specified by ID)")                                                                          //nolint: errcheck
-	cs.String(SubscriptionNameConfigItem, "", "The Azure subscription to use (specified by name)")                                                                      //nolint: errcheck
-	cs.String(ResourceGroupConfigItem, "", "The Azure resource group to use")                                                                                           //nolint: errcheck
-	cs.Bool(AdminConfigItem, false, "Generate admin user kubeconfig")                                                                                                   //nolint: errcheck
-	cs.String(ClusterNameConfigItem, "", "The name of the AKS cluster")                                                                                                 //nolint: errcheck
-	cs.String(LoginTypeConfigItem, "devicecode", "The login method to use when connecting to the AKS cluster as a non-admin. Possible values: devicecode,spn,ropc,msi") //nolint: errcheck
+	cs.String(SubscriptionIDConfigItem, "", "The Azure subscription to use (specified by ID)")                                                                                         //nolint: errcheck
+	cs.String(SubscriptionNameConfigItem, "", "The Azure subscription to use (specified by name)")                                                                                     //nolint: errcheck
+	cs.String(ResourceGroupConfigItem, "", "The Azure resource group to use")                                                                                                          //nolint: errcheck
+	cs.Bool(AdminConfigItem, false, "Generate admin user kubeconfig")                                                                                                                  //nolint: errcheck
+	cs.String(ClusterNameConfigItem, "", "The name of the AKS cluster")                                                                                                                //nolint: errcheck
+	cs.String(LoginTypeConfigItem, string(LoginTypeDeviceCode), "The login method to use when connecting to the AKS cluster as a non-admin. Possible values: devicecode,spn,ropc,msi") //nolint: errcheck
+	cs.String(AzureEnvironmentConfigItem, string(AzureEnvironmentPublicCloud), "The Azure environment the clusters are in. Possible values: public,china,usgov,stack")
 
 	cs.SetShort(ResourceGroupConfigItem, "r") //nolint: errcheck
 

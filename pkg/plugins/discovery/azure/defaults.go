@@ -26,4 +26,5 @@ const (
 	AdminConfigItem            = "admin"
 	ClusterNameConfigItem      = "cluster-name"
 	LoginTypeConfigItem        = "login-type"
+	AzureEnvironmentConfigItem = "azure-env"
 )
