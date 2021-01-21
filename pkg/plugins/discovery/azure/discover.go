@@ -72,13 +72,23 @@ func (p *aksClusterProvider) listClusters(ctx *provider.Context) ([]*provider.Cl
 			if err != nil {
 				return nil, fmt.Errorf("create cluster id: %w", err)
 			}
-			controlPlaneEndpoint := fmt.Sprintf("https://%s:443", *val.Fqdn)
 
 			cluster := &provider.Cluster{
-				Name:                 *val.Name,
-				ID:                   clusterID,
-				ControlPlaneEndpoint: &controlPlaneEndpoint,
+				Name: *val.Name,
+				ID:   clusterID,
 			}
+
+			controlPlaneEndpoint := ""
+			if val.Fqdn != nil {
+				controlPlaneEndpoint = fmt.Sprintf("https://%s:443", *val.Fqdn)
+			}
+			if val.PrivateFQDN != nil {
+				controlPlaneEndpoint = fmt.Sprintf("https://%s:443", *val.PrivateFQDN)
+			}
+			if controlPlaneEndpoint != "" {
+				cluster.ControlPlaneEndpoint = &controlPlaneEndpoint
+			}
+
 			clusters = append(clusters, cluster)
 		}
 	}
